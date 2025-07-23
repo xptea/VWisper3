@@ -12,7 +12,7 @@ pub fn transcribe_audio(file_path: &str, api_key: &str) -> Result<String, String
     let url = "https://api.groq.com/openai/v1/audio/transcriptions";
     let form = reqwest::blocking::multipart::Form::new()
         .file("file", file_path).map_err(|e| e.to_string())?
-        .text("model", "whisper-large-v3-turbo")
+        .text("model", "distil-whisper-large-v3-en")
         .text("response_format", "json");
 
     let resp = client.post(url)
