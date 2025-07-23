@@ -40,10 +40,13 @@ impl AudioProcessor {
             sample_format: hound::SampleFormat::Int,
         };
 
-        let filename = "audio_latest.wav";
+        let temp_dir = std::env::temp_dir();
+        let filename = temp_dir.join("vwisper_audio_latest.wav");
+        
+        println!("[VWisper] Using temp directory: {}", temp_dir.display());
         self.wav_writer = Some(WavWriter::create(&filename, spec)?);
         *self.is_recording.lock().unwrap() = true;
-        println!("[VWisper] Recording to {}", filename);
+        println!("[VWisper] Recording to {}", filename.display());
         Ok(())
     }
 
