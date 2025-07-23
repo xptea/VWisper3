@@ -1,97 +1,84 @@
 
 "use client"
-import { useEffect, useRef } from "react"
-import useAudioPillState from "../lib/useAudioPillState"
+import { useEffect, useRef, useState } from "react"
+import useAudioPillState from "../lib/AudioPillState"
+
+const BAR_COUNT = 10
+const BAR_MIN_HEIGHT = 6
+const BAR_MAX_HEIGHT = 24
+const SENSITIVITY = 2.0
 
 export default function VoiceVisualizer() {
   const { state } = useAudioPillState()
-  const bars = Array.from({ length: 10 }, (_, i) => i)
-  const barsRef = useRef<HTMLDivElement[]>([])
+  const [barHeights, setBarHeights] = useState<number[]>(Array(BAR_COUNT).fill(BAR_MIN_HEIGHT))
+  const [isBarAnimated, setIsBarAnimated] = useState(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
-  const dataArrayRef = useRef<Uint8Array | null>(null)
   const animationRef = useRef<number | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    if (state === "listening" || state === "loading") {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-        if (cancelled) return
+
+    async function setup() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         streamRef.current = stream
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
         audioContextRef.current = audioCtx
         const source = audioCtx.createMediaStreamSource(stream)
         const analyser = audioCtx.createAnalyser()
-  analyser.fftSize = 256
-  analyser.smoothingTimeConstant = 0.05
+        analyser.fftSize = 256
+        analyser.smoothingTimeConstant = 0.1
         source.connect(analyser)
         analyserRef.current = analyser
         const bufferLength = analyser.frequencyBinCount
-        const dataArray: Uint8Array = new Uint8Array(bufferLength)
-        dataArrayRef.current = dataArray
-        let lastHeights: number[] = Array(bars.length).fill(6)
-        function getLogBinRange(barIdx: number, barCount: number, fftSize: number, sampleRate: number): [number, number] {
-          const minHz = 20;
-          const maxHz = sampleRate / 2;
-          const minLog = Math.log10(minHz);
-          const maxLog = Math.log10(maxHz);
-          const logRange = maxLog - minLog;
-          const startLog = minLog + (logRange * barIdx) / barCount;
-          const endLog = minLog + (logRange * (barIdx + 1)) / barCount;
-          const startHz = Math.pow(10, startLog);
-          const endHz = Math.pow(10, endLog);
-          const binSize = maxHz / fftSize;
-          const startBin = Math.max(0, Math.floor(startHz / binSize));
-          const endBin = Math.min(fftSize - 1, Math.ceil(endHz / binSize));
-          return [startBin, endBin];
-        }
+        const dataArray = new Uint8Array(bufferLength)
+
         function animate() {
-          if (analyserRef.current && dataArrayRef.current && state === "listening") {
-            // @ts-ignore
-            analyserRef.current.getByteFrequencyData(dataArrayRef.current)
-          }
-          const bufferLength = dataArrayRef.current ? dataArrayRef.current.length : 0;
-          const sampleRate = audioContextRef.current ? audioContextRef.current.sampleRate : 44100;
-          for (let i = 0; i < bars.length; i++) {
-            const bar = barsRef.current[i]
-            if (bar) {
-              let height = 6
-              if (state === "listening" && dataArrayRef.current) {
-                const [startBin, endBin] = getLogBinRange(i, bars.length, bufferLength, sampleRate);
-                let max = 0;
-                for (let j = startBin; j < endBin; j++) {
-                  if (j < bufferLength) {
-                    const v = dataArrayRef.current[j] || 0;
-                    if (v > max) max = v;
-                  }
-                }
-                const emphasized = Math.pow(max / 255, 1.2);
-                height = 6 + emphasized * 24;
-                lastHeights[i] = height;
-              } else if (state === "loading") {
-                height = lastHeights[i];
-              }
-              bar.style.height = `${height}px`;
+          if (cancelled) return
+          if (analyserRef.current && state === "listening") {
+            analyserRef.current.getByteFrequencyData(dataArray)
+            
+            // Calculate overall volume (RMS)
+            let sum = 0
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += (dataArray[i] || 0) ** 2
             }
+            const rms = Math.sqrt(sum / dataArray.length)
+            const volume = Math.min(rms / 255, 1.0)
+            
+            // Create human-like bar heights based on volume
+            const baseHeight = BAR_MIN_HEIGHT + (volume * SENSITIVITY * (BAR_MAX_HEIGHT - BAR_MIN_HEIGHT))
+            const newHeights = Array(BAR_COUNT).fill(0).map((_, i) => {
+              // Add some randomization to make it look more natural
+              const randomFactor = 0.7 + Math.random() * 0.6 // 0.7 to 1.3
+              const centerBias = Math.cos((i - BAR_COUNT / 2) * 0.3) * 0.2 + 1 // Slight center bias
+              const height = baseHeight * randomFactor * centerBias
+              return Math.max(BAR_MIN_HEIGHT, Math.min(BAR_MAX_HEIGHT, height))
+            })
+            
+            setBarHeights(newHeights)
+            setIsBarAnimated(volume > 0.1)
+          } else if (state === "loading") {
+            // During loading, keep bars at minimum height
+            setBarHeights(Array(BAR_COUNT).fill(BAR_MIN_HEIGHT))
+            setIsBarAnimated(false)
           }
-          animationRef.current = requestAnimationFrame(animate);
+          animationRef.current = requestAnimationFrame(animate)
         }
-        animate();
-      }).catch(() => {
-        animationRef.current = window.setInterval(() => {
-          barsRef.current.forEach((bar) => {
-            if (bar) {
-              const newHeight = Math.random() * 12 + 6
-              bar.style.height = `${newHeight}px`
-            }
-          })
-        }, 150) as unknown as number
-      })
+        animate()
+      } catch (e) {
+        setBarHeights(Array(BAR_COUNT).fill(BAR_MIN_HEIGHT))
+        setIsBarAnimated(false)
+      }
+    }
+
+    if (state === "listening" || state === "loading") {
+      setup()
     } else {
       if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current as number)
-        clearInterval(animationRef.current as number)
+        cancelAnimationFrame(animationRef.current)
         animationRef.current = null
       }
       if (audioContextRef.current) {
@@ -102,17 +89,13 @@ export default function VoiceVisualizer() {
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
       }
-      barsRef.current.forEach((bar) => {
-        if (bar) {
-          bar.style.height = "6px"
-        }
-      })
+      setBarHeights(Array(BAR_COUNT).fill(BAR_MIN_HEIGHT))
+      setIsBarAnimated(false)
     }
     return () => {
       cancelled = true
       if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current as number)
-        clearInterval(animationRef.current as number)
+        cancelAnimationFrame(animationRef.current)
         animationRef.current = null
       }
       if (audioContextRef.current) {
@@ -131,15 +114,18 @@ export default function VoiceVisualizer() {
   }
 
   return (
-    <div className="flex items-center gap-1 h-5">
-      {bars.map((_bar, index) => (
+    <div className="relative" style={{ width: BAR_COUNT * 6, height: 24 }}>
+      {barHeights.map((h, i) => (
         <div
-          key={index}
-          ref={(el) => {
-            if (el) barsRef.current[index] = el
+          key={i}
+          className={`bg-white rounded-full transition-all duration-75 absolute left-0 ${isBarAnimated ? "" : "opacity-60"}`}
+          style={{
+            width: 4,
+            height: h,
+            left: i * 6,
+            top: "50%",
+            transform: "translateY(-50%)",
           }}
-          className="w-[2px] bg-white rounded-full transition-all duration-150"
-          style={{ height: "6px" }}
         />
       ))}
     </div>

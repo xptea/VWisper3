@@ -35,10 +35,12 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                     let _ = window.set_focus();
                 }
                 let _ = app_handle.emit_to("main", "pill-state", "listening");
+                let _ = app_handle.emit_to("main", "start-recording", "");
             }
             if !control_pressed && last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
                 let _ = app_handle.emit_to("main", "pill-state", "loading");
+                let _ = app_handle.emit_to("main", "stop-recording", "");
                 loading_until = Some(now + Duration::from_secs(5));
             }
             last_control_state = control_pressed;

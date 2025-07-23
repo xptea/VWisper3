@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react"
 import { cn } from "./lib/utils"
-import useAudioPillState from "./lib/useAudioPillState"
+import useAudioPillState from "./lib/AudioPillState"
 import VoiceVisualizer from "./components/VoiceVisualizer"
 export default function AudioPill() {
   const { state, visible } = useAudioPillState()
