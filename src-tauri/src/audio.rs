@@ -7,11 +7,9 @@ use serde_json::json;
 use hound::{WavWriter, WavSpec};
 
 const TARGET_SAMPLE_RATE: u32 = 16000;
-const BUFFER_SIZE: usize = 1024;
 
 pub struct AudioProcessor {
     buffer: Arc<Mutex<Vec<f32>>>,
-    original_sample_rate: u32,
     wav_writer: Option<WavWriter<std::io::BufWriter<std::fs::File>>>,
     is_recording: Arc<Mutex<bool>>,
     downsample_ratio: f32,
@@ -27,7 +25,6 @@ impl AudioProcessor {
 
         Self {
             buffer: Arc::new(Mutex::new(Vec::new())),
-            original_sample_rate,
             wav_writer: None,
             is_recording: Arc::new(Mutex::new(false)),
             downsample_ratio,
@@ -35,6 +32,7 @@ impl AudioProcessor {
     }
 
     pub fn start_recording(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("[VWisper] AudioProcessor: start_recording called");
         let spec = WavSpec {
             channels: 1,
             sample_rate: TARGET_SAMPLE_RATE,
@@ -42,20 +40,19 @@ impl AudioProcessor {
             sample_format: hound::SampleFormat::Int,
         };
 
-        let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-        let filename = format!("audio_{}.wav", timestamp);
-        
+        let filename = "audio_latest.wav";
         self.wav_writer = Some(WavWriter::create(&filename, spec)?);
         *self.is_recording.lock().unwrap() = true;
-        println!("Started recording to {}", filename);
+        println!("[VWisper] Recording to {}", filename);
         Ok(())
     }
 
     pub fn stop_recording(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("[VWisper] AudioProcessor: stop_recording called");
         if let Some(writer) = self.wav_writer.take() {
             writer.finalize()?;
             *self.is_recording.lock().unwrap() = false;
-            println!("Stopped recording");
+            println!("[VWisper] Stopped recording");
         }
         Ok(())
     }
@@ -91,6 +88,7 @@ impl AudioProcessor {
                 let sample_i16 = (sample * i16::MAX as f32) as i16;
                 writer.write_sample(sample_i16)?;
             }
+            println!("[VWisper] Wrote {} samples to wav", samples.len());
         }
         Ok(())
     }
@@ -107,6 +105,7 @@ pub fn get_audio_processor() -> Arc<Mutex<Option<AudioProcessor>>> {
 }
 
 pub fn start_audio_capture(app_handle: AppHandle) {
+    println!("[VWisper] Starting audio capture thread");
     thread::spawn(move || {
         let host = cpal::default_host();
 

@@ -8,7 +8,6 @@ export default function AudioPill() {
   const { state, visible } = useAudioPillState()
 
   const handleStop = () => {
-    // This will be handled by the Tauri backend
     console.log('Stop recording requested')
   }
 

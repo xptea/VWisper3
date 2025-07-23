@@ -19,7 +19,24 @@
         "center": false,
         "decorations": false,
         "transparent": true,
-        "shadow": false
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      },
+      {
+        "label": "settings",
+        "title": "VWisper Settings",
+        "width": 400,
+        "height": 600,
+        "visible": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "resizable": true,
+        "url": "settings.html"
       }
     ],
     "security": {

@@ -2,6 +2,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use device_query::{DeviceState, Keycode, DeviceQuery};
 use tauri::{AppHandle, Emitter, Manager};
+use crate::audio;
+use crate::handle_stop_recording_workflow;
 
 pub fn start_global_key_monitor(app_handle: AppHandle) {
     thread::spawn(move || {
@@ -36,12 +38,16 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                 }
                 let _ = app_handle.emit_to("main", "pill-state", "listening");
                 let _ = app_handle.emit_to("main", "start-recording", "");
+                println!("[VWisper] Right Ctrl pressed: starting audio recording");
+                let _ = audio::start_recording();
             }
             if !control_pressed && last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
                 let _ = app_handle.emit_to("main", "pill-state", "loading");
                 let _ = app_handle.emit_to("main", "stop-recording", "");
                 loading_until = Some(now + Duration::from_secs(5));
+                println!("[VWisper] Right Ctrl released: stopping audio recording and running workflow");
+                let _ = handle_stop_recording_workflow(&app_handle);
             }
             last_control_state = control_pressed;
             thread::sleep(Duration::from_millis(15));
