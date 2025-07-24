@@ -24,10 +24,10 @@
         "skipTaskbar": true
       },
       {
-        "label": "settings",
-        "title": "VWisper Settings",
-        "width": 400,
-        "height": 600,
+        "label": "dashboard",
+        "title": "VWisper Dashboard",
+        "width": 1200,
+        "height": 800,
         "visible": false,
         "center": true,
         "decorations": true,
@@ -36,7 +36,7 @@
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "resizable": true,
-        "url": "settings.html"
+        "url": "dashboard.html"
       }
     ],
     "security": {
