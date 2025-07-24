@@ -5,6 +5,8 @@ use tauri::{command, Emitter, Manager, PhysicalPosition};
 mod platform {
     #[cfg(target_os = "windows")]
     pub mod windows;
+    #[cfg(target_os = "macos")]
+    pub mod macos;
 }
 mod audio;
 mod tray;
@@ -22,7 +24,7 @@ use dirs::config_dir;
 
 static HISTORY: OnceLock<History> = OnceLock::new();
 
-pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
+pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, mut _restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
     audio::stop_recording().map_err(|e| e.to_string())?;
     
     let settings = settings::get_settings().map_err(|e| e.to_string())?;
@@ -44,7 +46,7 @@ pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Opt
     }
     let result = transcription::transcribe_audio(file_path.to_str().unwrap(), &api_key);
     let _ = app.emit_to("main", "transcription-result", &result.text);
-    textinjection::inject_text(&result.text, restore_focus);
+    let _ = textinjection::inject_text(&result.text);
     if settings.save_history {
         let history = HISTORY.get_or_init(History::new);
         history.add_entry(TranscriptionEntry {
@@ -94,6 +96,11 @@ fn main() {
                 let app_handle = app.handle().clone();
                 platform::windows::start_global_key_monitor(app_handle);
             }
+            #[cfg(target_os = "macos")]
+            {
+                let app_handle = app.handle().clone();
+                platform::macos::start_global_key_monitor(app_handle);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -129,5 +136,7 @@ fn get_transcription_history() -> Vec<TranscriptionEntry> {
 #[tauri::command]
 fn get_audio_base64(path: String) -> Result<String, String> {
     let data = fs::read(path).map_err(|e| e.to_string())?;
-    Ok(format!("data:audio/wav;base64,{}", base64::encode(data)))
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    Ok(format!("data:audio/wav;base64,{}", STANDARD.encode(data)))
 }

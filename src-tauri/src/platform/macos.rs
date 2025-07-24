@@ -5,32 +5,19 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::audio;
 use crate::handle_stop_recording_workflow;
 
-fn store_and_restore_previous_window() -> Option<()> {
-    None
-}
-
-fn restore_window_focus(_window_handle: ()) {
-}
-
 pub fn start_global_key_monitor(app_handle: AppHandle) {
     thread::spawn(move || {
         let device_state = DeviceState::new();
         let mut last_control_state = false;
         let mut last_action_time = Instant::now();
-        let mut previous_window: Option<()> = None;
-
         loop {
             let keys = device_state.get_keys();
             let control_pressed = keys.contains(&Keycode::LControl) || keys.contains(&Keycode::RControl);
             let now = Instant::now();
-
             if control_pressed && !last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
-                previous_window = store_and_restore_previous_window();
-                
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
-                    let _ = window.set_focus();
                 }
                 let _ = app_handle.emit_to("main", "pill-state", "listening");
                 let _ = app_handle.emit_to("main", "start-recording", "");
@@ -40,24 +27,17 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                 last_action_time = now;
                 let _ = app_handle.emit_to("main", "pill-state", "loading");
                 let _ = app_handle.emit_to("main", "stop-recording", "");
-                
                 let app_handle_clone = app_handle.clone();
-                let previous_window_clone = previous_window;
-                
                 thread::spawn(move || {
-                    let result = handle_stop_recording_workflow(&app_handle_clone);
-                    
+                    let result = handle_stop_recording_workflow(&app_handle_clone, None);
                     if let Err(e) = result {
                         eprintln!("Error in handle_stop_recording_workflow: {}", e);
                     }
-                    
                     let _ = app_handle_clone.emit_to("main", "pill-state", "idle");
                     if let Some(window) = app_handle_clone.get_webview_window("main") {
                         let _ = window.hide();
                     }
                 });
-                
-                previous_window = None;
             }
             last_control_state = control_pressed;
             thread::sleep(Duration::from_millis(15));
