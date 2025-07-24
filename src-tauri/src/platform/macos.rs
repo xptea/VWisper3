@@ -5,26 +5,11 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::audio;
 use crate::handle_stop_recording_workflow;
 
-#[cfg(target_os = "windows")]
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
-
-#[cfg(target_os = "windows")]
-fn store_and_restore_previous_window() -> Option<windows::Win32::Foundation::HWND> {
-    unsafe {
-        let previous_window = GetForegroundWindow();
-        if previous_window.0 != 0 {
-            Some(previous_window)
-        } else {
-            None
-        }
-    }
+fn store_and_restore_previous_window() -> Option<()> {
+    None
 }
 
-#[cfg(target_os = "windows")]
-fn restore_window_focus(window_handle: windows::Win32::Foundation::HWND) {
-    unsafe {
-        let _ = SetForegroundWindow(window_handle);
-    }
+fn restore_window_focus(_window_handle: ()) {
 }
 
 pub fn start_global_key_monitor(app_handle: AppHandle) {
@@ -32,11 +17,11 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
         let device_state = DeviceState::new();
         let mut last_control_state = false;
         let mut last_action_time = Instant::now();
-        let mut previous_window: Option<windows::Win32::Foundation::HWND> = None;
+        let mut previous_window: Option<()> = None;
 
         loop {
             let keys = device_state.get_keys();
-            let control_pressed = keys.contains(&Keycode::RControl);
+            let control_pressed = keys.contains(&Keycode::LControl) || keys.contains(&Keycode::RControl);
             let now = Instant::now();
 
             if control_pressed && !last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
@@ -60,15 +45,7 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                 let previous_window_clone = previous_window;
                 
                 thread::spawn(move || {
-                    let restore_focus = if let Some(window) = previous_window_clone {
-                        Some(Box::new(move || {
-                            restore_window_focus(window);
-                        }) as Box<dyn FnOnce()>)
-                    } else {
-                        None
-                    };
-                    
-                    let result = handle_stop_recording_workflow(&app_handle_clone, restore_focus);
+                    let result = handle_stop_recording_workflow(&app_handle_clone);
                     
                     if let Err(e) = result {
                         eprintln!("Error in handle_stop_recording_workflow: {}", e);
