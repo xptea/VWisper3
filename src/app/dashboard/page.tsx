@@ -1,11 +1,10 @@
-import { SiteHeader } from "@/components/sheader";
+import { SiteHeader } from "@/components/dashboard/sheader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChartAreaInteractive } from "@/components/chart";
-import { DataTable } from "@/components/table";
-import data from "./data.json";
+import { ChartAreaInteractive } from "@/components/dashboard/chart";
+import { DataTable } from "@/components/dashboard/table";
 
 export default function DashboardPage() {
   return (
@@ -109,7 +108,7 @@ export default function DashboardPage() {
                       <Input placeholder="Search transcriptions..." className="max-w-sm" />
                       <Button variant="outline">Filter</Button>
                     </div>
-                    <DataTable data={data} />
+                    <DataTable data={[]} />
                   </div>
                 </CardContent>
               </Card>

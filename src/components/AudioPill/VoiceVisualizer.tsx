@@ -1,7 +1,7 @@
 
 "use client"
 import { useEffect, useRef, useState } from "react"
-import useAudioPillState from "../lib/AudioPillState"
+import useAudioPillState from "../../lib/AudioPillState"
 
 const BAR_COUNT = 10
 const BAR_MIN_HEIGHT = 6

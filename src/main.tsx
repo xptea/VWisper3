@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./lib/theme-provider";
-import AudioPill from "./UI/AudioPill";
+import AudioPill from "./app/audio-pill/page";
 import DashboardLayout from "./app/dashboard/layout";
 import DashboardPage from "./app/dashboard/page";
 import SettingsPage from "./app/settings/page";
