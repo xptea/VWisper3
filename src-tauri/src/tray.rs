@@ -4,8 +4,8 @@ use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 
 pub fn create_system_tray<R: Runtime>(app: &AppHandle<R>) -> TrayIcon<R> {
-    let settings_item = MenuItemBuilder::new("Settings")
-        .id("settings")
+    let dashboard_item = MenuItemBuilder::new("Dashboard")
+        .id("dashboard")
         .build(app)
         .unwrap();
     let quit_item = MenuItemBuilder::new("Quit")
@@ -13,7 +13,7 @@ pub fn create_system_tray<R: Runtime>(app: &AppHandle<R>) -> TrayIcon<R> {
         .build(app)
         .unwrap();
     let menu = MenuBuilder::new(app)
-        .item(&settings_item)
+        .item(&dashboard_item)
         .separator()
         .item(&quit_item)
         .build()
@@ -21,8 +21,8 @@ pub fn create_system_tray<R: Runtime>(app: &AppHandle<R>) -> TrayIcon<R> {
     TrayIconBuilder::new()
         .menu(&menu)
         .on_menu_event(|app, event| {
-            if event.id.0 == "settings" {
-                if let Some(window) = app.get_webview_window("settings") {
+            if event.id.0 == "dashboard" {
+                if let Some(window) = app.get_webview_window("dashboard") {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }

@@ -32,7 +32,6 @@ impl AudioProcessor {
     }
 
     pub fn start_recording(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("[VWisper] AudioProcessor: start_recording called");
         let spec = WavSpec {
             channels: 1,
             sample_rate: TARGET_SAMPLE_RATE,
@@ -43,19 +42,15 @@ impl AudioProcessor {
         let temp_dir = std::env::temp_dir();
         let filename = temp_dir.join("vwisper_audio_latest.wav");
         
-        println!("[VWisper] Using temp directory: {}", temp_dir.display());
         self.wav_writer = Some(WavWriter::create(&filename, spec)?);
         *self.is_recording.lock().unwrap() = true;
-        println!("[VWisper] Recording to {}", filename.display());
         Ok(())
     }
 
     pub fn stop_recording(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("[VWisper] AudioProcessor: stop_recording called");
         if let Some(writer) = self.wav_writer.take() {
             writer.finalize()?;
             *self.is_recording.lock().unwrap() = false;
-            println!("[VWisper] Stopped recording");
         }
         Ok(())
     }
@@ -91,7 +86,6 @@ impl AudioProcessor {
                 let sample_i16 = (sample * i16::MAX as f32) as i16;
                 writer.write_sample(sample_i16)?;
             }
-            println!("[VWisper] Wrote {} samples to wav", samples.len());
         }
         Ok(())
     }
@@ -108,7 +102,6 @@ pub fn get_audio_processor() -> Arc<Mutex<Option<AudioProcessor>>> {
 }
 
 pub fn start_audio_capture(app_handle: AppHandle) {
-    println!("[VWisper] Starting audio capture thread");
     thread::spawn(move || {
         let host = cpal::default_host();
 
@@ -172,9 +165,6 @@ pub fn start_audio_capture(app_handle: AppHandle) {
             eprintln!("Failed to play audio stream: {}", e);
             return;
         }
-
-        eprintln!("Audio stream started successfully at {}Hz, downsampling to {}Hz", 
-                 original_sample_rate, TARGET_SAMPLE_RATE);
 
         loop {
             thread::sleep(Duration::from_millis(100));

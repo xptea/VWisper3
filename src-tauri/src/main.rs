@@ -13,31 +13,18 @@ mod transcription;
 mod textinjection;
 
 pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
-    let workflow_start = std::time::Instant::now();
-    println!("[VWisper] AudioProcessor: stop_recording_workflow called at {:?}", workflow_start);
-    
     audio::stop_recording().map_err(|e| e.to_string())?;
-    let after_stop = std::time::Instant::now();
-    println!("[VWisper] Audio recording stopped after {:?}, preparing to transcribe", after_stop.duration_since(workflow_start));
     
     let settings = settings::get_settings().map_err(|e| e.to_string())?;
     let api_key = settings.groq_api_key.ok_or("No Groq API key set")?;
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join("vwisper_audio_latest.wav");
-    println!("[VWisper] Sending audio file to Groq: {}", file_path.display());
     
     let text = transcription::transcribe_audio(file_path.to_str().unwrap(), &api_key)?;
-    let after_transcription = std::time::Instant::now();
-    println!("[VWisper] Transcription received after {:?}: {}", after_transcription.duration_since(workflow_start), text);
     
     let _ = app.emit_to("main", "transcription-result", &text);
-    println!("[VWisper] Emitted transcription result to UI");
     
-    println!("[VWisper] About to inject text into previous window after {:?} total time", after_transcription.duration_since(workflow_start));
     textinjection::inject_text(&text, restore_focus);
-    
-    let workflow_end = std::time::Instant::now();
-    println!("[VWisper] Text injection completed. Total workflow time: {:?}", workflow_end.duration_since(workflow_start));
     
     Ok(())
 }
@@ -45,7 +32,7 @@ pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Opt
 fn main() {
     tauri::Builder::default()
         .on_window_event(|window, event| {
-            if window.label() == "settings" {
+            if window.label() == "dashboard" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     window.hide().unwrap();
                     api.prevent_close();
@@ -85,15 +72,14 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
 
 #[command]
 fn start_audio_recording() -> Result<(), String> {
-    println!("[VWisper] Start audio recording command received");
     audio::start_recording().map_err(|e| e.to_string())
 }
 
 #[command]
 fn stop_audio_recording(app: tauri::AppHandle) -> Result<(), String> {
     handle_stop_recording_workflow(&app, None)
-}
 }

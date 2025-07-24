@@ -34,7 +34,6 @@ fn store_and_restore_previous_window() -> Option<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn restore_window_focus(_window_handle: ()) {
-    // No-op on non-Windows
 }
 
 pub fn start_global_key_monitor(app_handle: AppHandle) {
@@ -52,7 +51,6 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
             if control_pressed && !last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
                 previous_window = store_and_restore_previous_window();
-                println!("[VWisper] Stored previous window for focus restoration");
                 
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
@@ -60,13 +58,10 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                 }
                 let _ = app_handle.emit_to("main", "pill-state", "listening");
                 let _ = app_handle.emit_to("main", "start-recording", "");
-                println!("[VWisper] Right Ctrl pressed: starting audio recording");
                 let _ = audio::start_recording();
             }
             if !control_pressed && last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
-                let workflow_start_time = Instant::now();
-                println!("[VWisper] Right Ctrl released at {:?}: stopping audio recording and running workflow", workflow_start_time);
                 let _ = app_handle.emit_to("main", "pill-state", "loading");
                 let _ = app_handle.emit_to("main", "stop-recording", "");
                 
@@ -74,11 +69,8 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                 let previous_window_clone = previous_window;
                 
                 thread::spawn(move || {
-                    println!("[VWisper] About to call handle_stop_recording_workflow");
-                    
                     let restore_focus = if let Some(window) = previous_window_clone {
                         Some(Box::new(move || {
-                            println!("[VWisper] Restoring focus to previous window");
                             restore_window_focus(window);
                         }) as Box<dyn FnOnce()>)
                     } else {
@@ -86,11 +78,9 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                     };
                     
                     let result = handle_stop_recording_workflow(&app_handle_clone, restore_focus);
-                    let workflow_end_time = Instant::now();
-                    println!("[VWisper] handle_stop_recording_workflow completed after {:?}", workflow_end_time.duration_since(workflow_start_time));
                     
                     if let Err(e) = result {
-                        println!("[VWisper] ERROR in handle_stop_recording_workflow: {}", e);
+                        eprintln!("Error in handle_stop_recording_workflow: {}", e);
                     }
                     
                     let _ = app_handle_clone.emit_to("main", "pill-state", "idle");

@@ -23,9 +23,11 @@ pub fn transcribe_audio(file_path: &str, api_key: &str) -> Result<String, String
 
     let status = resp.status();
     let text = resp.text().map_err(|e| e.to_string())?;
+    
     if !status.is_success() {
         return Err(format!("Groq API error: {} - {}", status, text));
     }
+    
     let v: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     Ok(v["text"].as_str().unwrap_or("").to_string())
 } 

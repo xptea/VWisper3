@@ -7,9 +7,14 @@ pub fn inject_text(text: &str, restore_focus: Option<Box<dyn FnOnce()>>) {
     }
     
     let mut enigo = Enigo::new();
-    let mut clipboard = Clipboard::new().unwrap();
+    let mut clipboard = match Clipboard::new() {
+        Ok(clipboard) => clipboard,
+        Err(_) => return,
+    };
     
-    let _ = clipboard.set_text(text);
+    if clipboard.set_text(text).is_err() {
+        return;
+    }
     
     #[cfg(target_os = "macos")]
     {
