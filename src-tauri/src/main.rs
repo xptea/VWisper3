@@ -11,6 +11,16 @@ mod tray;
 mod settings;
 mod transcription;
 mod textinjection;
+mod history;
+use history::{History, TranscriptionEntry};
+use chrono::Utc;
+use std::sync::OnceLock;
+use uuid::Uuid;
+use std::fs;
+use base64;
+use dirs::config_dir;
+
+static HISTORY: OnceLock<History> = OnceLock::new();
 
 pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
     audio::stop_recording().map_err(|e| e.to_string())?;
@@ -19,13 +29,37 @@ pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Opt
     let api_key = settings.groq_api_key.ok_or("No Groq API key set")?;
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join("vwisper_audio_latest.wav");
-    
-    let text = transcription::transcribe_audio(file_path.to_str().unwrap(), &api_key)?;
-    
-    let _ = app.emit_to("main", "transcription-result", &text);
-    
-    textinjection::inject_text(&text, restore_focus);
-    
+    let id = Uuid::new_v4().to_string();
+    let mut wav_path = None;
+    if settings.save_history && settings.save_audio {
+        // Save audio to audio_out/{id}.wav in config dir
+        if let Some(mut config_path) = config_dir() {
+            config_path.push("vwisper");
+            config_path.push("audio_out");
+            std::fs::create_dir_all(&config_path).ok();
+            let out_path = config_path.join(format!("{}.wav", id));
+            std::fs::copy(&file_path, &out_path).ok();
+            wav_path = Some(out_path.to_string_lossy().to_string());
+        }
+    }
+    let result = transcription::transcribe_audio(file_path.to_str().unwrap(), &api_key);
+    let _ = app.emit_to("main", "transcription-result", &result.text);
+    textinjection::inject_text(&result.text, restore_focus);
+    if settings.save_history {
+        let history = HISTORY.get_or_init(History::new);
+        history.add_entry(TranscriptionEntry {
+            id,
+            timestamp: Utc::now(),
+            text: result.text.clone(),
+            user: None,
+            source: Some("audio".to_string()),
+            round_trip_ms: Some(result.round_trip_ms),
+            status: result.status.clone(),
+            wav_path,
+        });
+    } else {
+        let _ = std::fs::remove_file(&file_path);
+    }
     Ok(())
 }
 
@@ -68,7 +102,9 @@ fn main() {
             settings::get_settings,
             settings::save_settings,
             settings::reset_settings,
-            settings::get_settings_path
+            settings::get_settings_path,
+            get_transcription_history,
+            get_audio_base64
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -82,4 +118,16 @@ fn start_audio_recording() -> Result<(), String> {
 #[command]
 fn stop_audio_recording(app: tauri::AppHandle) -> Result<(), String> {
     handle_stop_recording_workflow(&app, None)
+}
+
+#[command]
+fn get_transcription_history() -> Vec<TranscriptionEntry> {
+    let history = HISTORY.get_or_init(History::new);
+    history.get_entries()
+}
+
+#[tauri::command]
+fn get_audio_base64(path: String) -> Result<String, String> {
+    let data = fs::read(path).map_err(|e| e.to_string())?;
+    Ok(format!("data:audio/wav;base64,{}", base64::encode(data)))
 }

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { SiteHeader } from "@/components/dashboard/sheader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -5,8 +7,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChartAreaInteractive } from "@/components/dashboard/chart";
 import { DataTable } from "@/components/dashboard/table";
+import { format } from "date-fns";
 
 export default function DashboardPage() {
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    invoke("get_transcription_history").then((value) => {
+      const entries = value as any[];
+      const mapped = entries.map((entry) => ({
+        id: entry.id,
+        header: entry.text.slice(0, 32) + (entry.text.length > 32 ? "..." : ""),
+        type: entry.source || "audio",
+        status: entry.status || "-",
+        round_trip_ms: entry.round_trip_ms || null,
+        wav_path: entry.wav_path,
+        timestamp: entry.timestamp,
+        date: entry.timestamp ? format(new Date(entry.timestamp), "yyyy-MM-dd HH:mm:ss") : "-",
+        text: entry.text,
+      }));
+      mapped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setHistory(mapped);
+      setLoading(false);
+    });
+  }, []);
+
   return (
     <>
       <SiteHeader />
@@ -108,7 +134,11 @@ export default function DashboardPage() {
                       <Input placeholder="Search transcriptions..." className="max-w-sm" />
                       <Button variant="outline">Filter</Button>
                     </div>
-                    <DataTable data={[]} />
+                    {loading ? (
+                      <div>Loading...</div>
+                    ) : (
+                      <DataTable data={history} />
+                    )}
                   </div>
                 </CardContent>
               </Card>

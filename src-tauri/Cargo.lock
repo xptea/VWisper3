@@ -5153,6 +5153,7 @@ name = "vwisper"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "base64 0.22.1",
  "chrono",
  "cpal",
  "device_query",
@@ -5166,6 +5167,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "uuid",
  "windows 0.56.0",
 ]
 

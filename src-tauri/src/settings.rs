@@ -7,6 +7,8 @@ use tauri::command;
 #[derive(Serialize, Deserialize, Default)]
 pub struct Settings {
     pub groq_api_key: Option<String>,
+    pub save_history: bool,
+    pub save_audio: bool,
 }
 
 fn settings_path() -> PathBuf {
@@ -20,9 +22,9 @@ fn settings_path() -> PathBuf {
 fn load_settings() -> Settings {
     let path = settings_path();
     if let Ok(data) = fs::read_to_string(path) {
-        serde_json::from_str(&data).unwrap_or_default()
+        serde_json::from_str(&data).unwrap_or(Settings { save_history: true, save_audio: true, ..Default::default() })
     } else {
-        Settings::default()
+        Settings { save_history: true, save_audio: true, ..Default::default() }
     }
 }
 
@@ -38,9 +40,15 @@ pub fn get_settings() -> Result<Settings, String> {
 }
 
 #[command]
-pub fn save_settings(groq_api_key: String) -> Result<(), String> {
+pub fn save_settings(groq_api_key: String, save_history: Option<bool>, save_audio: Option<bool>) -> Result<(), String> {
     let mut settings = load_settings();
     settings.groq_api_key = Some(groq_api_key);
+    if let Some(val) = save_history {
+        settings.save_history = val;
+    }
+    if let Some(val) = save_audio {
+        settings.save_audio = val;
+    }
     save_settings_to_file(&settings)
 }
 
@@ -48,6 +56,8 @@ pub fn save_settings(groq_api_key: String) -> Result<(), String> {
 pub fn reset_settings() -> Result<(), String> {
     let mut settings = load_settings();
     settings.groq_api_key = None;
+    settings.save_history = true;
+    settings.save_audio = true;
     save_settings_to_file(&settings)
 }
 

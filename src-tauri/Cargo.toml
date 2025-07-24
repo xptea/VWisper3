@@ -35,4 +35,6 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 enigo = "0.1"
 arboard = "3.3"
+uuid = { version = "1.17.0", features = ["v4"] }
+base64 = "0.22.1"
 

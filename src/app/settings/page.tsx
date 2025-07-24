@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
+  const [saveHistory, setSaveHistory] = useState(true);
+  const [saveAudio, setSaveAudio] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [inputType, setInputType] = useState("text");
@@ -17,6 +19,8 @@ export default function SettingsPage() {
   useEffect(() => {
     invoke("get_settings").then((settings: any) => {
       setApiKey(settings.groq_api_key || "");
+      setSaveHistory(settings.save_history !== false);
+      setSaveAudio(settings.save_audio !== false);
       setLoading(false);
     });
     invoke("get_settings_path").then((path) => {
@@ -26,7 +30,7 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaved(false);
-    await invoke("save_settings", { groqApiKey: apiKey });
+    await invoke("save_settings", { groqApiKey: apiKey, saveHistory, saveAudio });
     setSaved(true);
     setInputType("password");
   };
@@ -35,6 +39,8 @@ export default function SettingsPage() {
     setSaved(false);
     await invoke("reset_settings");
     setApiKey("");
+    setSaveHistory(true);
+    setSaveAudio(true);
     setSaved(true);
     setInputType("text");
   };
@@ -47,7 +53,6 @@ export default function SettingsPage() {
 
   if (loading) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
-
   return (
     <>
       <SiteHeader />
@@ -59,7 +64,6 @@ export default function SettingsPage() {
                 <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
               </div>
               <Separator className="my-4" />
-              
               <Card className="w-full">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">API Configuration</CardTitle>
@@ -90,7 +94,43 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
-              
+
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>History & Audio Settings</CardTitle>
+                  <CardDescription>
+                    Control how your transcription history and audio files are saved.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <input
+                        id="save-history-toggle"
+                        type="checkbox"
+                        checked={saveHistory}
+                        onChange={e => setSaveHistory(e.target.checked)}
+                        className="accent-primary h-4 w-4"
+                      />
+                      <Label htmlFor="save-history-toggle">Save Transcription History</Label>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <input
+                        id="save-audio-toggle"
+                        type="checkbox"
+                        checked={saveAudio}
+                        onChange={e => setSaveAudio(e.target.checked)}
+                        className="accent-primary h-4 w-4"
+                        disabled={!saveHistory}
+                      />
+                      <Label htmlFor="save-audio-toggle" style={{ color: !saveHistory ? '#888' : undefined }}>
+                        Save Audio Files
+                      </Label>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="mt-4">
                 <CardHeader>
                   <CardTitle>Settings Information</CardTitle>
