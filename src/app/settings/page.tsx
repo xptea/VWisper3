@@ -180,7 +180,7 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle>Application Updates</CardTitle>
                   <CardDescription>
-                    Check for and install the latest version of VWisper.
+                    TESTING: Check for and install the latest version of VWisper.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

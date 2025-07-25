@@ -4,6 +4,7 @@ use std::process::Command;
 use std::env;
 use reqwest::blocking::Client;
 use std::io::Write;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateInfo {
@@ -20,15 +21,26 @@ pub struct UpdateResult {
 }
 
 pub fn get_current_version() -> Result<String, String> {
-    Ok("1.0.0".to_string())
+    Ok("1.0.2".to_string())
 }
 
 pub fn check_for_updates() -> Result<UpdateInfo, String> {
     let current_version = get_current_version()?;
     
     let client = Client::new();
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let random = (timestamp % 1000000) as u32;
+    let url = format!("https://raw.githubusercontent.com/xptea/VWisper3/refs/heads/main/src/version.txt?t={}&r={}", timestamp, random);
+    
     let response = client
-        .get("https://raw.githubusercontent.com/xptea/VWisper3/refs/heads/main/src/version.txt")
+        .get(&url)
+        .header("Cache-Control", "no-cache, no-store, must-revalidate")
+        .header("Pragma", "no-cache")
+        .header("Expires", "0")
+        .header("User-Agent", "VWisper-Update-Checker/1.0")
         .send()
         .map_err(|e| format!("Failed to fetch latest version: {}", e))?;
     
@@ -41,6 +53,8 @@ pub fn check_for_updates() -> Result<UpdateInfo, String> {
         .map_err(|e| format!("Failed to read response: {}", e))?
         .trim()
         .to_string();
+    
+    println!("Update check - Current: {}, Latest: {}", current_version, latest_version);
     
     let has_update = compare_versions(&current_version, &latest_version) < 0;
     let download_url = if has_update {
