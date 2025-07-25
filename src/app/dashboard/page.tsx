@@ -36,24 +36,6 @@ export default function DashboardPage() {
   // Compute card values
   const totalTranscriptions = history.length
 
-  // Audio Hours: try to estimate from wav_path file size if available (assuming 16kHz, 16bit mono PCM)
-  function estimateAudioDuration(wavPath: string | undefined): number {
-    // 16,000 samples/sec * 2 bytes/sample = 32,000 bytes/sec
-    // duration = fileSize / 32000
-    if (!wavPath) return 0
-    try {
-      // @ts-ignore
-      const fs = window.require ? window.require('fs') : undefined
-      if (fs) {
-        const stats = fs.statSync(wavPath)
-        return stats.size / 32000
-      }
-    } catch {}
-    return 0
-  }
-  // We can't access file size from browser, so just show '-' for now
-  const audioHours = '-'
-
   const successCount = history.filter(h => h.status === "success").length
   const successRate = totalTranscriptions > 0 ? Math.round((successCount / totalTranscriptions) * 100) : 0
   const apiAvg = totalTranscriptions > 0 ? Math.round(history.reduce((sum, h) => sum + (h.round_trip_ms || 0), 0) / totalTranscriptions) : 0
