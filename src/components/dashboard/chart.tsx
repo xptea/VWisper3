@@ -31,8 +31,6 @@ import {
 
 export const description = "An interactive area chart"
 
-const chartData: Array<Record<string, any>> = []
-
 const chartConfig = {
   visitors: {
     label: "Visitors",
@@ -47,7 +45,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function ChartAreaInteractive() {
+export function ChartAreaInteractive({ data }: { data: Array<Record<string, any>> }) {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("90d")
 
@@ -57,12 +55,12 @@ export function ChartAreaInteractive() {
     }
   }, [isMobile])
 
-  const filteredData = chartData
+  const filteredData = data
 
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Total Visitors</CardTitle>
+        <CardTitle>Words Transcribed</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
             Total for the last 3 months
@@ -110,18 +108,6 @@ export function ChartAreaInteractive() {
         >
           <AreaChart data={filteredData}>
             <defs>
-              <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor="var(--color-desktop)"
-                  stopOpacity={1.0}
-                />
-                <stop
-                  offset="95%"
-                  stopColor="var(--color-desktop)"
-                  stopOpacity={0.1}
-                />
-              </linearGradient>
               <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
@@ -153,30 +139,30 @@ export function ChartAreaInteractive() {
             <ChartTooltip
               cursor={false}
               defaultIndex={isMobile ? -1 : 10}
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }}
-                  indicator="dot"
-                />
-              }
+              content={({ active, payload }) => {
+                if (!active || !payload || !payload.length) return null
+                const item = payload[0]
+                return (
+                  <div className="border-border/50 bg-background grid min-w-[8rem] items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
+                    <div className="font-medium">
+                      {new Date(item.payload.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-foreground font-mono font-bold text-base">{item.payload.words}</span>
+                      <span className="text-muted-foreground">words</span>
+                    </div>
+                  </div>
+                )
+              }}
             />
             <Area
               dataKey="mobile"
               type="natural"
               fill="url(#fillMobile)"
               stroke="var(--color-mobile)"
-              stackId="a"
-            />
-            <Area
-              dataKey="desktop"
-              type="natural"
-              fill="url(#fillDesktop)"
-              stroke="var(--color-desktop)"
               stackId="a"
             />
           </AreaChart>
