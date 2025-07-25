@@ -25,7 +25,7 @@ use std::time::Duration;
 
 static HISTORY: OnceLock<History> = OnceLock::new();
 
-pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, mut _restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
+pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
     audio::stop_recording().map_err(|e| e.to_string())?;
     
     let settings = settings::get_settings().map_err(|e| e.to_string())?;
@@ -45,9 +45,35 @@ pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, mut _restore_focus
             wav_path = Some(out_path.to_string_lossy().to_string());
         }
     }
+    
     let result = transcription::transcribe_audio(file_path.to_str().unwrap(), &api_key);
-    let _ = app.emit_to("main", "transcription-result", &result.text);
-    let _ = textinjection::inject_text(&result.text);
+    
+    if result.status == "success" && !result.text.is_empty() {
+        let _ = app.emit_to("main", "transcription-result", &result.text);
+        
+        // Restore focus to the original window before injecting text
+        if let Some(restore_fn) = restore_focus {
+            restore_fn();
+            // Give the window a moment to gain focus
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        
+        match textinjection::inject_text(&result.text) {
+            Ok(_) => {
+                let _ = app.emit_to("main", "injection-status", "success");
+            }
+            Err(e) => {
+                eprintln!("Text injection failed: {}", e);
+                let _ = app.emit_to("main", "injection-status", "error");
+                let _ = app.emit_to("main", "injection-error", &e.to_string());
+            }
+        }
+    } else {
+        let error_msg = result.error.unwrap_or_else(|| "Transcription failed".to_string());
+        eprintln!("Transcription failed: {}", error_msg);
+        let _ = app.emit_to("main", "transcription-error", &error_msg);
+    }
+    
     if settings.save_history {
         let history = HISTORY.get_or_init(History::new);
         history.add_entry(TranscriptionEntry {
@@ -98,6 +124,10 @@ fn main() {
             let app_handle = app.handle().clone();
             audio::start_audio_capture(app_handle);
             
+            if let Err(e) = textinjection::init_text_injector() {
+                eprintln!("Failed to initialize text injector: {}", e);
+            }
+            
             #[cfg(target_os = "windows")]
             {
                 let app_handle = app.handle().clone();
@@ -119,7 +149,10 @@ fn main() {
             settings::reset_settings,
             settings::get_settings_path,
             get_transcription_history,
-            get_audio_base64
+            get_audio_base64,
+            inject_text_manual,
+            get_text_injector_status,
+            test_text_injection
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -179,4 +212,19 @@ fn get_audio_base64(path: String) -> Result<String, String> {
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
     Ok(format!("data:audio/wav;base64,{}", STANDARD.encode(data)))
+}
+
+#[command]
+fn inject_text_manual(text: String) -> Result<(), String> {
+    textinjection::inject_text(&text).map_err(|e| e.to_string())
+}
+
+#[command]
+fn get_text_injector_status() -> Result<bool, String> {
+    Ok(textinjection::is_text_injector_initialized())
+}
+
+#[command]
+fn test_text_injection() -> Result<(), String> {
+    textinjection::test_text_injection().map_err(|e| e.to_string())
 }

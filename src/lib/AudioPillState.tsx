@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react"
 import { Window } from "@tauri-apps/api/window"
 import { soundManager } from "./sound"
 
-type AudioPillState = "idle" | "listening" | "loading" | "error"
+type AudioPillState = "idle" | "listening" | "loading" | "error" | "success"
 
 type UnlistenFn = () => void
 
@@ -38,7 +38,7 @@ export default function useAudioPillState() {
     if (previousState.current !== state) {
       if (state === "listening" && previousState.current === "idle") {
         soundManager.playStart()
-      } else if (state === "idle" && previousState.current === "loading") {
+      } else if (state === "idle" && (previousState.current === "loading" || previousState.current === "success")) {
         soundManager.playEnding()
       } else if (state === "error") {
         soundManager.playError()

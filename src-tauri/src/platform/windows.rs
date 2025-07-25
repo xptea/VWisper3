@@ -5,17 +5,32 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::audio;
 use crate::handle_stop_recording_workflow;
 
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::HWND;
+
 pub fn start_global_key_monitor(app_handle: AppHandle) {
     thread::spawn(move || {
         let device_state = DeviceState::new();
         let mut last_control_state = false;
         let mut last_action_time = Instant::now();
+        let mut active_window_handle: Option<HWND> = None;
+        
         loop {
             let keys = device_state.get_keys();
             let control_pressed = keys.contains(&Keycode::RControl);
             let now = Instant::now();
+            
             if control_pressed && !last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
+                
+                // Capture the currently active window before showing our window
+                #[cfg(target_os = "windows")]
+                {
+                    active_window_handle = Some(unsafe { GetForegroundWindow() });
+                }
+                
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
                 }
@@ -23,18 +38,33 @@ pub fn start_global_key_monitor(app_handle: AppHandle) {
                 let _ = app_handle.emit_to("main", "start-recording", "");
                 let _ = audio::start_recording();
             }
+            
             if !control_pressed && last_control_state && now.duration_since(last_action_time) > Duration::from_millis(25) {
                 last_action_time = now;
                 let _ = app_handle.emit_to("main", "pill-state", "loading");
                 let _ = app_handle.emit_to("main", "stop-recording", "");
+                
                 let app_handle_clone = app_handle.clone();
+                let window_to_restore = active_window_handle;
+                
                 thread::spawn(move || {
-                    let result = handle_stop_recording_workflow(&app_handle_clone, None);
+                    let result = handle_stop_recording_workflow(&app_handle_clone, Some(Box::new(move || {
+                        // Restore focus to the original window
+                        #[cfg(target_os = "windows")]
+                        if let Some(hwnd) = window_to_restore {
+                            unsafe {
+                                let _ = SetForegroundWindow(hwnd);
+                            }
+                        }
+                    })));
+                    
                     if let Err(e) = result {
                         eprintln!("Error in handle_stop_recording_workflow: {}", e);
                         let _ = app_handle_clone.emit_to("main", "pill-state", "error");
-                        // Keep error state visible for 3 seconds before hiding
                         thread::sleep(Duration::from_secs(3));
+                    } else {
+                        let _ = app_handle_clone.emit_to("main", "pill-state", "success");
+                        thread::sleep(Duration::from_millis(500));
                     }
                     let _ = app_handle_clone.emit_to("main", "pill-state", "idle");
                     if let Some(window) = app_handle_clone.get_webview_window("main") {

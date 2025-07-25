@@ -19,14 +19,15 @@ tauri-build = { version = "2", features = [] }
 
 [features]
 default = []
-macos = ["objc", "cocoa"]
+macos = ["objc", "cocoa", "core-graphics"]
 
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking", "multipart"] }
 serde_json = "1.0"
 windows = { version = "0.56", features = [
     "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Input_KeyboardAndMouse"
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Foundation"
 ] }
 device_query = "1.1"
 tauri = { version = "2", features = [ "macos-private-api", "tray-icon"] }
@@ -37,7 +38,7 @@ cpal = "0.15"
 hound = "3.5"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
-enigo = "0.1"
+enigo = "0.5.0"
 arboard = "3.3"
 uuid = { version = "1.17.0", features = ["v4"] }
 base64 = "0.22.1"
@@ -48,5 +49,6 @@ objc = { version = "0.2.7", optional = true }
 cocoa = { version = "0.26.1", optional = true }
 winapi = { version = "0.3", optional = true }
 tauri-plugin-autostart = "2.5.0"
-
+log = "0.4"
+core-graphics = { version = "0.23", optional = true }
 
