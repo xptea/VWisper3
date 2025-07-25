@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { enable, isEnabled, disable } from '@tauri-apps/plugin-autostart';
 import { SiteHeader } from "@/components/dashboard/sheader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [saveHistory, setSaveHistory] = useState(true);
   const [saveAudio, setSaveAudio] = useState(true);
+  const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [inputType, setInputType] = useState("text");
@@ -25,6 +27,12 @@ export default function SettingsPage() {
     });
     invoke("get_settings_path").then((path) => {
       setSettingsPath(path as string);
+    });
+    // Check autostart status
+    isEnabled().then((enabled) => {
+      setAutostartEnabled(enabled);
+    }).catch(() => {
+      setAutostartEnabled(false);
     });
   }, []);
 
@@ -49,6 +57,19 @@ export default function SettingsPage() {
     setApiKey(e.target.value);
     setInputType("text");
     setSaved(false);
+  };
+
+  const handleAutostartToggle = async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        await enable();
+      } else {
+        await disable();
+      }
+      setAutostartEnabled(enabled);
+    } catch (error) {
+      console.error('Failed to toggle autostart:', error);
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -127,6 +148,27 @@ export default function SettingsPage() {
                         Save Audio Files
                       </Label>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Autostart Settings</CardTitle>
+                  <CardDescription>
+                    Automatically launch VWisper when your system starts up.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <input
+                      id="autostart-toggle"
+                      type="checkbox"
+                      checked={autostartEnabled}
+                      onChange={e => handleAutostartToggle(e.target.checked)}
+                      className="accent-primary h-4 w-4"
+                    />
+                    <Label htmlFor="autostart-toggle">Launch VWisper on Startup</Label>
                   </div>
                 </CardContent>
               </Card>

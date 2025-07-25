@@ -27,8 +27,11 @@ fn inject_text_via_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error
     let mut ctx: ClipboardContext = ClipboardProvider::new()
         .map_err(|e| format!("Failed to initialize clipboard: {}", e))?;
     let original_clipboard = ctx.get_contents().unwrap_or_default();
-    ctx.set_contents(text.to_string())
-        .map_err(|e| format!("Failed to set clipboard content: {}", e))?;
+    let set_clip_result = ctx.set_contents(text.to_string());
+    if let Err(e) = set_clip_result {
+        let _ = ctx.set_contents(original_clipboard);
+        return Err(format!("Failed to set clipboard content: {}", e).into());
+    }
     let mut enigo = Enigo::new();
     let focus_delay = Duration::from_millis(100);
     thread::sleep(focus_delay);
@@ -38,9 +41,7 @@ fn inject_text_via_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error
     thread::sleep(Duration::from_millis(20));
     enigo.key_up(Key::Control);
     thread::sleep(Duration::from_millis(100));
-    if !original_clipboard.is_empty() {
-        let _ = ctx.set_contents(original_clipboard);
-    }
+    let _ = ctx.set_contents(original_clipboard);
     Ok(())
 }
 

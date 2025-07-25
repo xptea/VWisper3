@@ -184,4 +184,12 @@ pub fn stop_recording() -> Result<(), Box<dyn std::error::Error>> {
         processor.stop_recording()?;
     }
     Ok(())
+}
+
+pub fn is_recording() -> bool {
+    if let Some(processor) = &*get_audio_processor().lock().unwrap() {
+        processor.is_recording()
+    } else {
+        false
+    }
 } 

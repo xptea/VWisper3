@@ -21,6 +21,7 @@ use uuid::Uuid;
 use std::fs;
 use base64;
 use dirs::config_dir;
+use std::time::Duration;
 
 static HISTORY: OnceLock<History> = OnceLock::new();
 
@@ -76,6 +77,12 @@ fn main() {
             }
         })
         .setup(|app| {
+            #[cfg(desktop)]
+            let _ = app.handle().plugin(tauri_plugin_autostart::init(
+                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+                Some(vec![]),
+            ));
+            
             let _tray = tray::create_system_tray(&app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(monitor) = window.current_monitor().unwrap() {
@@ -106,6 +113,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             start_audio_recording,
             stop_audio_recording,
+            manual_stop_recording,
             settings::get_settings,
             settings::save_settings,
             settings::reset_settings,
@@ -125,6 +133,38 @@ fn start_audio_recording() -> Result<(), String> {
 #[command]
 fn stop_audio_recording(app: tauri::AppHandle) -> Result<(), String> {
     handle_stop_recording_workflow(&app, None)
+}
+
+#[command]
+fn manual_stop_recording(app: tauri::AppHandle) -> Result<(), String> {
+    // Check if recording is actually in progress
+    if !audio::is_recording() {
+        return Ok(());
+    }
+    
+    // Stop the audio recording first
+    audio::stop_recording().map_err(|e| e.to_string())?;
+    
+    // Emit loading state
+    let _ = app.emit_to("main", "pill-state", "loading");
+    
+    // Handle the stop recording workflow in a separate thread
+    let app_handle_clone = app.clone();
+    std::thread::spawn(move || {
+        let result = handle_stop_recording_workflow(&app_handle_clone, None);
+        if let Err(e) = result {
+            eprintln!("Error in handle_stop_recording_workflow: {}", e);
+            let _ = app_handle_clone.emit_to("main", "pill-state", "error");
+            // Keep error state visible for 3 seconds before hiding
+            std::thread::sleep(Duration::from_secs(3));
+        }
+        let _ = app_handle_clone.emit_to("main", "pill-state", "idle");
+        if let Some(window) = app_handle_clone.get_webview_window("main") {
+            let _ = window.hide();
+        }
+    });
+    
+    Ok(())
 }
 
 #[command]

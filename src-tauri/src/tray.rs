@@ -19,6 +19,7 @@ pub fn create_system_tray<R: Runtime>(app: &AppHandle<R>) -> TrayIcon<R> {
         .build()
         .unwrap();
     TrayIconBuilder::new()
+        .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .on_menu_event(|app, event| {
             if event.id.0 == "dashboard" {

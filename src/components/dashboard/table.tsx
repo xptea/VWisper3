@@ -3,6 +3,10 @@ import {
   IconCircleCheckFilled,
   IconLoader,
   IconPlayerPlay,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -13,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import {
   Drawer,
   DrawerClose,
@@ -32,7 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 export const schema = {
   id: "",
@@ -76,7 +81,7 @@ const columns: ColumnDef<any>[] = [
   {
     accessorKey: "header",
     header: "Header",
-    cell: ({ row }) => <TableCellViewer item={row.original} />, // custom side panel
+    cell: ({ row }) => <TableCellViewer item={row.original} />,
     enableHiding: false,
   },
   {
@@ -135,9 +140,19 @@ export function DataTable({ data: initialData }: { data: any[] }) {
   const [data] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = useState({})
   const [page, setPage] = useState(0)
+  const [pageInput, setPageInput] = useState("")
   const pageSize = 10
-  const pageCount = Math.ceil(data.length / pageSize)
-  const pagedData = data.slice(page * pageSize, (page + 1) * pageSize)
+  
+  // Memoize expensive calculations
+  const { pageCount, pagedData, startIndex, endIndex } = useMemo(() => {
+    const pageCount = Math.ceil(data.length / pageSize)
+    const startIndex = page * pageSize
+    const endIndex = Math.min((page + 1) * pageSize, data.length)
+    const pagedData = data.slice(startIndex, endIndex)
+    
+    return { pageCount, pagedData, startIndex, endIndex }
+  }, [data, page, pageSize])
+  
   const table = useReactTable({
     data: pagedData,
     columns,
@@ -149,6 +164,41 @@ export function DataTable({ data: initialData }: { data: any[] }) {
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
   })
+
+  const handlePageChange = useCallback((newPage: number) => {
+    if (newPage >= 0 && newPage < pageCount) {
+      setPage(newPage)
+      setPageInput("")
+    }
+  }, [pageCount])
+
+  const handlePageInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setPageInput(value)
+  }, [])
+
+  const handlePageInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const newPage = parseInt(pageInput) - 1
+      handlePageChange(newPage)
+    }
+  }, [pageInput, handlePageChange])
+
+  const handlePageInputBlur = useCallback(() => {
+    const newPage = parseInt(pageInput) - 1
+    if (!isNaN(newPage) && newPage >= 0 && newPage < pageCount) {
+      setPage(newPage)
+    }
+    setPageInput("")
+  }, [pageInput, pageCount])
+
+  // Reset to first page if data changes and current page is invalid
+  React.useEffect(() => {
+    if (page >= pageCount && pageCount > 0) {
+      setPage(0)
+    }
+  }, [page, pageCount])
+
   return (
     <div className="w-full flex-col justify-start gap-6">
       <div className="overflow-hidden rounded-lg border">
@@ -192,39 +242,95 @@ export function DataTable({ data: initialData }: { data: any[] }) {
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-between px-4 py-2">
-        <div className="text-muted-foreground text-sm">
-          Page {page + 1} of {pageCount}
+      
+      <div className="flex items-center justify-between px-2">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {data.length > 0 && (
+            <>
+              Showing {startIndex + 1} to {endIndex} of {data.length} results
+            </>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setPage(0)} disabled={page === 0}>
-            First
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-            Previous
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>
-            Next
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setPage(pageCount - 1)} disabled={page >= pageCount - 1}>
-            Last
-          </Button>
+        <div className="flex items-center space-x-6 lg:space-x-8">
+          <div className="flex items-center space-x-2">
+            <p className="text-sm font-medium">Page</p>
+            <Input
+              type="number"
+              min={1}
+              max={pageCount}
+              value={pageInput}
+              onChange={handlePageInputChange}
+              onKeyDown={handlePageInputKeyDown}
+              onBlur={handlePageInputBlur}
+              className="w-16 h-8 text-center"
+              placeholder={String(page + 1)}
+            />
+            <p className="text-sm text-muted-foreground">
+              of {pageCount}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              className="hidden h-8 w-8 p-0 lg:flex"
+              onClick={() => handlePageChange(0)}
+              disabled={page === 0}
+            >
+              <span className="sr-only">Go to first page</span>
+              <IconChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-8 w-8 p-0"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 0}
+            >
+              <span className="sr-only">Go to previous page</span>
+              <IconChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-8 w-8 p-0"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= pageCount - 1}
+            >
+              <span className="sr-only">Go to next page</span>
+              <IconChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="hidden h-8 w-8 p-0 lg:flex"
+              onClick={() => handlePageChange(pageCount - 1)}
+              disabled={page >= pageCount - 1}
+            >
+              <span className="sr-only">Go to last page</span>
+              <IconChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function AudioCell({ wavPath }: { wavPath: string | null }) {
+const AudioCell = React.memo(({ wavPath }: { wavPath: string | null }) => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  if (!wavPath) return "-";
-  const handlePlay = async () => {
-    setLoading(true);
-    const src = await invoke<string>("get_audio_base64", { path: wavPath });
-    setAudioSrc(src);
-    setLoading(false);
-  };
+  
+  if (!wavPath) return <span>-</span>;
+  
+  const handlePlay = useCallback(async () => {
+    try {
+      setLoading(true);
+      const src = await invoke<string>("get_audio_base64", { path: wavPath });
+      setAudioSrc(src);
+    } catch (error) {
+      console.error("Failed to load audio:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [wavPath]);
+
   return (
     <div className="flex items-center gap-2">
       <span className="truncate max-w-[120px]" title={wavPath}>{wavPath.replace(/\\/g, "/")}</span>
@@ -234,17 +340,28 @@ function AudioCell({ wavPath }: { wavPath: string | null }) {
       {audioSrc && <audio controls src={audioSrc} autoPlay style={{ height: 24 }} />}
     </div>
   );
-}
+});
 
-function TableCellViewer({ item }: { item: any }) {
+AudioCell.displayName = "AudioCell";
+
+const TableCellViewer = React.memo(({ item }: { item: any }) => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const handlePlay = async () => {
-    setLoading(true);
-    const src = await invoke<string>("get_audio_base64", { path: item.wav_path });
-    setAudioSrc(src);
-    setLoading(false);
-  };
+  
+  const handlePlay = useCallback(async () => {
+    if (!item.wav_path) return;
+    
+    try {
+      setLoading(true);
+      const src = await invoke<string>("get_audio_base64", { path: item.wav_path });
+      setAudioSrc(src);
+    } catch (error) {
+      console.error("Failed to load audio:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [item.wav_path]);
+
   return (
     <Drawer direction="right">
       <DrawerTrigger asChild>
@@ -272,7 +389,7 @@ function TableCellViewer({ item }: { item: any }) {
                 </div>
               )}
             </div>
-            <div className="mt-4" style={{ userSelect: 'text' }}>
+            <div className="mt-4">
               <b>Full Transcript:</b>
               <div className="bg-muted rounded p-2 mt-1 whitespace-pre-wrap text-sm max-h-48 overflow-y-auto" style={{ userSelect: 'text' }}>
                 {item.text}
@@ -288,4 +405,6 @@ function TableCellViewer({ item }: { item: any }) {
       </DrawerContent>
     </Drawer>
   );
-}
+});
+
+TableCellViewer.displayName = "TableCellViewer";

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SiteHeader } from "@/components/dashboard/sheader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,63 +13,92 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    invoke("get_transcription_history").then((value) => {
+  const fetchHistory = useCallback(async () => {
+    try {
+      const value = await invoke("get_transcription_history");
       const entries = value as any[];
       const mapped = entries.map((entry) => ({
         id: entry.id,
-        header: entry.text.slice(0, 32) + (entry.text.length > 32 ? "..." : ""),
+        header: entry.text?.slice(0, 32) + (entry.text?.length > 32 ? "..." : "") || "No text",
         type: entry.source || "audio",
         status: entry.status || "-",
         round_trip_ms: entry.round_trip_ms || null,
         wav_path: entry.wav_path,
         timestamp: entry.timestamp,
         date: entry.timestamp ? format(new Date(entry.timestamp), "yyyy-MM-dd HH:mm:ss") : "-",
-        text: entry.text,
+        text: entry.text || "",
       }));
-      mapped.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Sort by timestamp (newest first)
+      mapped.sort((a, b) => {
+        const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return dateB - dateA;
+      });
+      
       setHistory(mapped);
+    } catch (error) {
+      console.error("Failed to fetch history:", error);
+      setHistory([]);
+    } finally {
       setLoading(false);
-    });
+    }
   }, []);
 
-  // Compute card values
-  const totalTranscriptions = history.length
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
-  const successCount = history.filter(h => h.status === "success").length
-  const successRate = totalTranscriptions > 0 ? Math.round((successCount / totalTranscriptions) * 100) : 0
-  const apiAvg = totalTranscriptions > 0 ? Math.round(history.reduce((sum, h) => sum + (h.round_trip_ms || 0), 0) / totalTranscriptions) : 0
+  // Memoize expensive computations
+  const stats = useMemo(() => {
+    const totalTranscriptions = history.length;
+    const successCount = history.filter(h => h.status === "success").length;
+    const successRate = totalTranscriptions > 0 ? Math.round((successCount / totalTranscriptions) * 100) : 0;
+    const apiAvg = totalTranscriptions > 0 ? Math.round(history.reduce((sum, h) => sum + (h.round_trip_ms || 0), 0) / totalTranscriptions) : 0;
+    
+    const totalWords = history.reduce((sum, h) => {
+      if (!h.text) return sum;
+      return sum + h.text.split(/\s+/).filter(Boolean).length;
+    }, 0);
+    
+    const totalMinutes = history.length;
+    const avgWordsPerMin = totalMinutes > 0 ? Math.round(totalWords / totalMinutes) : 0;
 
-  // Calculate total words and avg words per min (assume 1 min per transcription)
-  const totalWords = history.reduce((sum, h) => sum + (h.text ? h.text.split(/\s+/).filter(Boolean).length : 0), 0)
-  const totalMinutes = history.length // Placeholder: 1 min per transcription
-  const avgWordsPerMin = totalMinutes > 0 ? Math.round(totalWords / totalMinutes) : 0
+    return {
+      totalTranscriptions,
+      successRate,
+      apiAvg,
+      avgWordsPerMin
+    };
+  }, [history]);
 
-  // Compute chart data: group by day, sum words per day
-  const chartData = (() => {
-    const map = new Map<string, { date: string, words: number }>()
+  // Memoize chart data computation
+  const chartData = useMemo(() => {
+    const map = new Map<string, { date: string, words: number }>();
+    
     history.forEach(h => {
-      if (!h.timestamp) return
-      const date = new Date(h.timestamp).toISOString().slice(0, 10)
-      const words = h.text ? h.text.split(/\s+/).filter(Boolean).length : 0
-      if (!map.has(date)) map.set(date, { date, words: 0 })
-      map.get(date)!.words += words
-    })
+      if (!h.timestamp || !h.text) return;
+      const date = new Date(h.timestamp).toISOString().slice(0, 10);
+      const words = h.text.split(/\s+/).filter(Boolean).length;
+      if (!map.has(date)) map.set(date, { date, words: 0 });
+      map.get(date)!.words += words;
+    });
+    
     // Fill last 30 days
-    const days = []
+    const days = [];
     for (let i = 29; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const date = d.toISOString().slice(0, 10)
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const date = d.toISOString().slice(0, 10);
       days.push({
         date,
         words: map.get(date)?.words || 0,
-        mobile: map.get(date)?.words || 0, // For chart compatibility
-        desktop: 0 // Not used
-      })
+        mobile: map.get(date)?.words || 0,
+        desktop: 0
+      });
     }
-    return days
-  })()
+    return days;
+  }, [history]);
 
   return (
     <>
@@ -116,7 +145,7 @@ export default function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Total Transcriptions</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{totalTranscriptions}</div>
+                    <div className="text-2xl font-bold">{stats.totalTranscriptions}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -124,7 +153,7 @@ export default function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Avg Words Per Min</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{avgWordsPerMin}</div>
+                    <div className="text-2xl font-bold">{stats.avgWordsPerMin}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -132,7 +161,7 @@ export default function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{successRate}%</div>
+                    <div className="text-2xl font-bold">{stats.successRate}%</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -140,7 +169,7 @@ export default function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Avg API Time</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{apiAvg} ms</div>
+                    <div className="text-2xl font-bold">{stats.apiAvg} ms</div>
                   </CardContent>
                 </Card>
               </div>
