@@ -18,3 +18,4 @@ pub fn run() {
 }
 
 pub mod history;
+pub mod update;

@@ -6,10 +6,13 @@ import AudioPill from "./app/audio-pill/page";
 import DashboardLayout from "./app/dashboard/layout";
 import DashboardPage from "./app/dashboard/page";
 import SettingsPage from "./app/settings/page";
+import { UpdateChecker } from "./components/UpdateChecker";
+import { Toaster } from "./components/ui/sonner";
 
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vwisper-ui-theme">
+      <UpdateChecker />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AudioPill />} />
@@ -26,6 +29,7 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+      <Toaster />
     </ThemeProvider>
   );
 }

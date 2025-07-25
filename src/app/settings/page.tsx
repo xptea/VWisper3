@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useUpdate } from "@/hooks/use-update";
+import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
@@ -17,6 +19,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [inputType, setInputType] = useState("text");
   const [settingsPath, setSettingsPath] = useState<string | null>(null);
+  const { updateInfo, loading: updateLoading, error: updateError, downloading, checkForUpdates, downloadAndInstallUpdate } = useUpdate();
 
   useEffect(() => {
     invoke("get_settings").then((settings: any) => {
@@ -169,6 +172,70 @@ export default function SettingsPage() {
                       className="accent-primary h-4 w-4"
                     />
                     <Label htmlFor="autostart-toggle">Launch VWisper on Startup</Label>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Application Updates</CardTitle>
+                  <CardDescription>
+                    Check for and install the latest version of VWisper.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {updateInfo && (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">Current Version:</span>
+                            <Badge variant="outline">{updateInfo.current_version}</Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">Latest Version:</span>
+                            <Badge variant={updateInfo.has_update ? "default" : "outline"}>
+                              {updateInfo.latest_version}
+                            </Badge>
+                          </div>
+                        </div>
+                        {updateInfo.has_update && (
+                          <Badge variant="destructive">Update Available</Badge>
+                        )}
+                      </div>
+                    )}
+                    
+                    {updateError && (
+                      <div className="text-sm text-red-600">
+                        Error: {updateError}
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={checkForUpdates} 
+                        disabled={updateLoading || downloading}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        {updateLoading ? "Checking..." : "Check for Updates"}
+                      </Button>
+                      {updateInfo?.has_update && updateInfo.download_url && (
+                        <Button 
+                          onClick={async () => {
+                            try {
+                              await downloadAndInstallUpdate(updateInfo.download_url!);
+                            } catch (error) {
+                              console.error("Update failed:", error);
+                            }
+                          }}
+                          disabled={downloading}
+                          className="flex-1"
+                        >
+                          {downloading ? "Downloading..." : "Download & Install"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

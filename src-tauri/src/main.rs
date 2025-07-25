@@ -14,6 +14,7 @@ mod settings;
 mod transcription;
 mod textinjection;
 mod history;
+mod update;
 use history::{History, TranscriptionEntry};
 use chrono::Utc;
 use std::sync::OnceLock;
@@ -152,7 +153,9 @@ fn main() {
             get_audio_base64,
             inject_text_manual,
             get_text_injector_status,
-            test_text_injection
+            test_text_injection,
+            check_for_updates,
+            download_and_install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -227,4 +230,23 @@ fn get_text_injector_status() -> Result<bool, String> {
 #[command]
 fn test_text_injection() -> Result<(), String> {
     textinjection::test_text_injection().map_err(|e| e.to_string())
+}
+
+#[command]
+fn check_for_updates() -> Result<update::UpdateInfo, String> {
+    update::check_for_updates().map_err(|e| e.to_string())
+}
+
+#[command]
+fn download_and_install_update(download_url: String, app: tauri::AppHandle) -> Result<update::UpdateResult, String> {
+    let result = update::download_and_install_update(download_url).map_err(|e| e.to_string())?;
+    
+    if result.success {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            app.exit(0);
+        });
+    }
+    
+    Ok(result)
 }
