@@ -45,6 +45,7 @@ export const schema = {
   type: "",
   status: "",
   round_trip_ms: null,
+  hold_time_ms: null,
   wav_path: null,
   target: "",
   timestamp: "",
@@ -118,6 +119,14 @@ const columns: ColumnDef<any>[] = [
     accessorKey: "round_trip_ms",
     header: "Groq RT (ms)",
     cell: ({ row }) => row.original.round_trip_ms ? row.original.round_trip_ms : "-",
+  },
+  {
+    accessorKey: "hold_time_ms",
+      header: "Hold Time (s)",
+      cell: ({ row }) =>
+        row.original.hold_time_ms != null
+          ? (row.original.hold_time_ms / 1000).toFixed(2)
+          : "-",
   },
   {
     accessorKey: "wav_path",
@@ -377,6 +386,7 @@ const TableCellViewer = React.memo(({ item }: { item: any }) => {
               <div><b>ID:</b> <span className="text-xs text-muted-foreground">{item.id}</span></div>
               <div><b>Status:</b> <span className={item.status === "success" ? "text-green-600" : "text-red-600"}>{item.status}</span></div>
               <div><b>Groq RT (ms):</b> {item.round_trip_ms ?? '-'}</div>
+              <div><b>Hold Time (ms):</b> {item.hold_time_ms ?? '-'}</div>
               <div><b>Source:</b> {item.type}</div>
               <div><b>Timestamp:</b> {item.timestamp}</div>
               <div><b>Audio Directory:</b> {item.wav_path ? <span className="break-all">{item.wav_path.replace(/\\/g, "/")}</span> : '-'}</div>

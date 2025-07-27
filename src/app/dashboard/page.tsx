@@ -23,6 +23,7 @@ export default function DashboardPage() {
         type: entry.source || "audio",
         status: entry.status || "-",
         round_trip_ms: entry.round_trip_ms || null,
+        hold_time_ms: entry.hold_time_ms || null,
         wav_path: entry.wav_path,
         timestamp: entry.timestamp,
         date: entry.timestamp ? format(new Date(entry.timestamp), "yyyy-MM-dd HH:mm:ss") : "-",
@@ -63,12 +64,22 @@ export default function DashboardPage() {
     
     const totalMinutes = history.length;
     const avgWordsPerMin = totalMinutes > 0 ? Math.round(totalWords / totalMinutes) : 0;
+    
+    // Calculate WPM based on hold time if available
+    const entriesWithHoldTime = history.filter(h => h.hold_time_ms && h.text);
+    const totalHoldTimeSeconds = entriesWithHoldTime.reduce((sum, h) => sum + (h.hold_time_ms / 1000), 0);
+    const totalHoldWords = entriesWithHoldTime.reduce((sum, h) => {
+      return sum + h.text.split(/\s+/).filter(Boolean).length;
+    }, 0);
+    const wpmBasedOnHoldTime = totalHoldTimeSeconds > 0 ? Math.round((totalHoldWords / totalHoldTimeSeconds) * 60) : 0;
 
     return {
       totalTranscriptions,
       successRate,
       apiAvg,
-      avgWordsPerMin
+      avgWordsPerMin,
+      wpmBasedOnHoldTime,
+      entriesWithHoldTime: entriesWithHoldTime.length
     };
   }, [history]);
 
@@ -155,7 +166,7 @@ export default function DashboardPage() {
                     <CardTitle className="text-sm font-medium">Avg Words Per Min</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.avgWordsPerMin}</div>
+                    <div className="text-2xl font-bold">{stats.wpmBasedOnHoldTime}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -217,4 +228,4 @@ export default function DashboardPage() {
       </div>
     </>
   );
-} 
+}

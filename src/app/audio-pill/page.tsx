@@ -58,7 +58,8 @@ export default function AudioPill() {
           )}
           {state !== "error" && <VoiceVisualizer />}
         </div>
+
       </div>
     </div>
   )
-} 
+}

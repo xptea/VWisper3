@@ -26,7 +26,7 @@ use std::time::Duration;
 
 static HISTORY: OnceLock<History> = OnceLock::new();
 
-pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Option<Box<dyn FnOnce()>>) -> Result<(), String> {
+pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Option<Box<dyn FnOnce()>>, hold_time_ms: Option<u64>) -> Result<(), String> {
     audio::stop_recording().map_err(|e| e.to_string())?;
     
     let settings = settings::get_settings().map_err(|e| e.to_string())?;
@@ -84,6 +84,7 @@ pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Opt
             user: None,
             source: Some("audio".to_string()),
             round_trip_ms: Some(result.round_trip_ms),
+            hold_time_ms: hold_time_ms,
             status: result.status.clone(),
             wav_path,
         });
@@ -168,7 +169,7 @@ fn start_audio_recording() -> Result<(), String> {
 
 #[command]
 fn stop_audio_recording(app: tauri::AppHandle) -> Result<(), String> {
-    handle_stop_recording_workflow(&app, None)
+    handle_stop_recording_workflow(&app, None, None)
 }
 
 #[command]
@@ -187,7 +188,7 @@ fn manual_stop_recording(app: tauri::AppHandle) -> Result<(), String> {
     // Handle the stop recording workflow in a separate thread
     let app_handle_clone = app.clone();
     std::thread::spawn(move || {
-        let result = handle_stop_recording_workflow(&app_handle_clone, None);
+        let result = handle_stop_recording_workflow(&app_handle_clone, None, None);
         if let Err(e) = result {
             eprintln!("Error in handle_stop_recording_workflow: {}", e);
             let _ = app_handle_clone.emit_to("main", "pill-state", "error");

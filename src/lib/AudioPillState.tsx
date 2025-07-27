@@ -11,6 +11,7 @@ const appWindow = new Window('main')
 export default function useAudioPillState() {
   const [state, setState] = useState<AudioPillState>("idle")
   const [visible, setVisible] = useState(false)
+  const [holdTime, setHoldTime] = useState<number | null>(null)
   const previousState = useRef<AudioPillState>("idle")
 
   useEffect(() => {
@@ -24,13 +25,20 @@ export default function useAudioPillState() {
       }
     })
     let unlistenPill: UnlistenFn | undefined
+    let unlistenHoldTime: UnlistenFn | undefined
     appWindow.listen<string>("pill-state", (event) => {
       const newState = event.payload as AudioPillState
       setState(newState)
       setVisible(newState !== "idle")
     }).then((fn: UnlistenFn) => { unlistenPill = fn })
+    
+    appWindow.listen<number>("hold-time", (event) => {
+      setHoldTime(event.payload)
+    }).then((fn: UnlistenFn) => { unlistenHoldTime = fn })
+    
     return () => {
       if (unlistenPill) unlistenPill()
+      if (unlistenHoldTime) unlistenHoldTime()
     }
   }, [])
 
@@ -47,5 +55,5 @@ export default function useAudioPillState() {
     }
   }, [state])
 
-  return { state, visible }
-} 
+  return { state, visible, holdTime }
+}

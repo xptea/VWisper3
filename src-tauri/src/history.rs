@@ -13,6 +13,7 @@ pub struct TranscriptionEntry {
     pub user: Option<String>,
     pub source: Option<String>,
     pub round_trip_ms: Option<u64>,
+    pub hold_time_ms: Option<u64>,
     pub status: String,
     pub wav_path: Option<String>,
 }
@@ -63,4 +64,4 @@ impl History {
         let entries = self.entries.lock().unwrap();
         entries.clone()
     }
-} 
+}
