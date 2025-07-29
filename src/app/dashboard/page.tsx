@@ -20,7 +20,7 @@ export default function DashboardPage() {
       const mapped = entries.map((entry) => ({
         id: entry.id,
         header: entry.text?.slice(0, 32) + (entry.text?.length > 32 ? "..." : "") || "No text",
-        type: entry.source || "audio",
+        type: "audio",
         status: entry.status || "-",
         round_trip_ms: entry.round_trip_ms || null,
         hold_time_ms: entry.hold_time_ms || null,

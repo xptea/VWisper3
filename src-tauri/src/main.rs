@@ -81,8 +81,6 @@ pub fn handle_stop_recording_workflow(app: &tauri::AppHandle, restore_focus: Opt
             id,
             timestamp: Utc::now(),
             text: result.text.clone(),
-            user: None,
-            source: Some("audio".to_string()),
             round_trip_ms: Some(result.round_trip_ms),
             hold_time_ms: hold_time_ms,
             status: result.status.clone(),

@@ -10,8 +10,6 @@ pub struct TranscriptionEntry {
     pub id: String,
     pub timestamp: DateTime<Utc>,
     pub text: String,
-    pub user: Option<String>,
-    pub source: Option<String>,
     pub round_trip_ms: Option<u64>,
     pub hold_time_ms: Option<u64>,
     pub status: String,
