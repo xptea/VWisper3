@@ -1,12 +1,12 @@
 use enigo::{Enigo, Keyboard, Settings};
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
-use log::{info, warn};
+use log::info;
 use std::thread;
 use std::time::Duration;
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
-use clipboard::{ClipboardProvider, ClipboardContext};
+use clipboard::ClipboardProvider;
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 static TEXT_INJECTOR: Lazy<Arc<Mutex<Option<Enigo>>>> = Lazy::new(|| {

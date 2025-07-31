@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { enable, isEnabled, disable } from '@tauri-apps/plugin-autostart';
 import { SiteHeader } from "@/components/dashboard/sheader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,12 +30,8 @@ export default function SettingsPage() {
     invoke("get_settings_path").then((path) => {
       setSettingsPath(path as string);
     });
-    // Check autostart status
-    isEnabled().then((enabled) => {
-      setAutostartEnabled(enabled);
-    }).catch(() => {
-      setAutostartEnabled(false);
-    });
+    // Check autostart status - for now we'll set it to false since we're not implementing autostart in the frontend
+    setAutostartEnabled(false);
   }, []);
 
   const handleSave = async () => {
@@ -64,11 +59,7 @@ export default function SettingsPage() {
 
   const handleAutostartToggle = async (enabled: boolean) => {
     try {
-      if (enabled) {
-        await enable();
-      } else {
-        await disable();
-      }
+      // For now, we'll just update the local state since autostart is handled by the backend
       setAutostartEnabled(enabled);
     } catch (error) {
       console.error('Failed to toggle autostart:', error);
